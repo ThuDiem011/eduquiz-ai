@@ -1,25 +1,9 @@
 import type { NextAuthConfig } from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
 import type { Role } from "@/types/enums";
 
 export const authConfig = {
   secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "eduquiz-ai-super-secret-key-2024",
-  providers: [
-    // We leave this empty here because the actual authorize function 
-    // depends on bcrypt and prisma (Node.js). 
-    // In v5, we will add the full provider in the Node-version (auth.ts).
-    CredentialsProvider({
-      name: "credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      // Authorize will be overwritten in auth.ts
-      async authorize() {
-        return null;
-      }
-    }),
-  ],
+  providers: [], // Empty for Edge compatibility, will be filled in auth.ts
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
@@ -44,5 +28,4 @@ export const authConfig = {
     error: "/login",
   },
   trustHost: true,
-  // Let Auth.js handle cookies automatically for dev/prod
 } satisfies NextAuthConfig;
