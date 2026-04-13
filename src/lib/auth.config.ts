@@ -3,7 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import type { Role } from "@/types/enums";
 
 export const authConfig = {
-  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "eduquiz-ai-super-secret-key-2024",
   providers: [
     // We leave this empty here because the actual authorize function 
     // depends on bcrypt and prisma (Node.js). 
