@@ -11,11 +11,13 @@ function createPrismaClient() {
   
   // Nếu là môi trường Vercel/Production dùng Turso
   if (url.startsWith("libsql:")) {
-    const libsql = createClient({
+    // Chúng ta không cần createClient thủ công, Adapter sẽ tự tạo từ Config
+    // Tuy nhiên để tránh lỗi TS, chúng ta truyền một object chứa url và authToken
+    const adapter = new PrismaLibSql({
       url: process.env.DATABASE_URL!,
       authToken: process.env.TURSO_AUTH_TOKEN,
     });
-    const adapter = new PrismaLibSql(libsql);
+    
     return new PrismaClient({ 
       adapter,
       log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
