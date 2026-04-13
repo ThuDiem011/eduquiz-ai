@@ -1,0 +1,372 @@
+// EduQuiz AI - Prisma Schema
+// Full database schema for educational quiz system
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== ENUMS ====================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ==================== USERS ====================
+
+model User {
+  id            String    @id @default(cuid())
+  fullName      String
+  email         String    @unique
+  passwordHash  String
+  role          String      @default("STUDENT")
+  avatarUrl     String?
+  phone         String?
+  school        String?   // Trường (học sinh)
+  className     String?   // Lớp (học sinh)
+  subject       String?   // Bộ môn (giáo viên)
+  bio           String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  createdQuestions    Question[]           @relation("QuestionCreator")
+  createdExams        Exam[]               @relation("ExamCreator")
+  assignments         Assignment[]         @relation("AssignmentCreator")
+  personalAssignments Assignment[]         @relation("StudentAssignment")
+  attempts            StudentExamAttempt[] @relation("StudentAttempts")
+  recommendations     Recommendation[]
+  classMembers        ClassMember[]
+  analyticsSnapshots  AnalyticsSnapshot[]
+
+  @@map("users")
+}
+
+// ==================== SUBJECTS ====================
+
+model Subject {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  color       String?   // Màu hiển thị (hex)
+  icon        String?   // Icon name
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  chapters    Chapter[]
+  questions   Question[]
+  exams       Exam[]
+
+  @@map("subjects")
+}
+
+model Chapter {
+  id          String    @id @default(cuid())
+  subjectId   String
+  name        String
+  orderIndex  Int       @default(0)
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  subject     Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  lessons     Lesson[]
+  questions   Question[]
+
+  @@map("chapters")
+}
+
+model Lesson {
+  id              String    @id @default(cuid())
+  chapterId       String
+  name            String
+  orderIndex      Int       @default(0)
+  description     String?
+  objectives      String?   // Mục tiêu học tập
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  chapter         Chapter   @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  questions       Question[]
+  recommendations Recommendation[]
+
+  @@map("lessons")
+}
+
+// ==================== QUESTIONS ====================
+
+model Question {
+  id            String           @id @default(cuid())
+  subjectId     String
+  chapterId     String
+  lessonId      String?
+  category      String @default("CONCEPT")
+  difficulty    String       @default("MEDIUM")
+  content       String
+  explanation   String?
+  correctChoiceId String?
+  status        String   @default("DRAFT")
+  sourceType    String       @default("MANUAL")
+  priority      Int              @default(5)  // 1-10
+  usageCount    Int              @default(0)
+  createdById   String
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  subject       Subject          @relation(fields: [subjectId], references: [id])
+  chapter       Chapter          @relation(fields: [chapterId], references: [id])
+  lesson        Lesson?          @relation(fields: [lessonId], references: [id])
+  createdBy     User             @relation("QuestionCreator", fields: [createdById], references: [id])
+  choices       Choice[]
+  examQuestions ExamQuestion[]
+  studentAnswers StudentAnswer[]
+  tags          QuestionTag[]
+
+  @@map("questions")
+}
+
+model Choice {
+  id         String   @id @default(cuid())
+  questionId String
+  label      String   // A, B, C, D
+  content    String
+  orderIndex Int      @default(0)
+
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  studentAnswers StudentAnswer[]
+
+  @@map("choices")
+}
+
+// ==================== TAGS ====================
+
+model KnowledgeTag {
+  id        String        @id @default(cuid())
+  name      String        @unique
+  color     String?
+  createdAt DateTime      @default(now())
+
+  questionTags QuestionTag[]
+
+  @@map("knowledge_tags")
+}
+
+model QuestionTag {
+  questionId String
+  tagId      String
+
+  question   Question     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  tag        KnowledgeTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([questionId, tagId])
+  @@map("question_tags")
+}
+
+// ==================== EXAMS ====================
+
+model Exam {
+  id                       String    @id @default(cuid())
+  title                    String
+  description              String?
+  subjectId                String
+  createdById              String
+  mode                     String  @default("PRACTICE")
+  durationMinutes          Int       @default(45)
+  totalQuestions           Int       @default(0)
+  shuffleQuestions         Boolean   @default(false)
+  shuffleChoices           Boolean   @default(false)
+  showAnswerAfterSubmit     Boolean   @default(true)
+  showExplanationAfterSubmit Boolean   @default(true)
+  startTime                DateTime?
+  endTime                  DateTime?
+  passingScore             Float     @default(50.0)
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  subject       Subject        @relation(fields: [subjectId], references: [id])
+  createdBy     User           @relation("ExamCreator", fields: [createdById], references: [id])
+  examQuestions ExamQuestion[]
+  assignments   Assignment[]
+  attempts      StudentExamAttempt[]
+
+  @@map("exams")
+}
+
+model ExamQuestion {
+  examId      String
+  questionId  String
+  orderIndex  Int    @default(0)
+  points      Float  @default(1.0)
+
+  exam        Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  question    Question @relation(fields: [questionId], references: [id])
+
+  @@id([examId, questionId])
+  @@map("exam_questions")
+}
+
+// ==================== CLASSES ====================
+
+model Class {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  teacherId   String?
+  schoolYear  String?
+  createdAt   DateTime  @default(now())
+
+  members     ClassMember[]
+  assignments Assignment[]
+
+  @@map("classes")
+}
+
+model ClassMember {
+  classId   String
+  userId    String
+  role          String      @default("STUDENT")
+  joinedAt  DateTime  @default(now())
+
+  class     Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@id([classId, userId])
+  @@map("class_members")
+}
+
+// ==================== ASSIGNMENTS ====================
+
+model Assignment {
+  id          String           @id @default(cuid())
+  examId      String
+  assignedById String
+  classId     String?
+  studentId   String?          // null nếu giao cho cả lớp
+  openAt      DateTime         @default(now())
+  closeAt     DateTime?
+  maxAttempts Int              @default(1)
+  status      String @default("ACTIVE")
+  createdAt   DateTime         @default(now())
+
+  exam        Exam             @relation(fields: [examId], references: [id])
+  assignedBy  User             @relation("AssignmentCreator", fields: [assignedById], references: [id])
+  student     User?            @relation("StudentAssignment", fields: [studentId], references: [id])
+  class       Class?           @relation(fields: [classId], references: [id])
+
+  @@map("assignments")
+}
+
+// ==================== ATTEMPTS ====================
+
+model StudentExamAttempt {
+  id              String        @id @default(cuid())
+  examId          String
+  studentId       String
+  startedAt       DateTime      @default(now())
+  submittedAt     DateTime?
+  score           Float?        // Điểm (0-10)
+  percentCorrect  Float?        // % đúng
+  correctCount    Int           @default(0)
+  wrongCount      Int           @default(0)
+  skippedCount    Int           @default(0)
+  status          String @default("IN_PROGRESS")
+  durationSeconds Int?
+  createdAt       DateTime      @default(now())
+
+  exam            Exam          @relation(fields: [examId], references: [id])
+  student         User          @relation("StudentAttempts", fields: [studentId], references: [id])
+  answers         StudentAnswer[]
+  analysisResult  AnalysisResult?
+
+  @@map("student_exam_attempts")
+}
+
+model StudentAnswer {
+  id               String    @id @default(cuid())
+  attemptId        String
+  questionId       String
+  selectedChoiceId String?
+  isCorrect        Boolean   @default(false)
+  answeredAt       DateTime  @default(now())
+
+  attempt          StudentExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question         Question           @relation(fields: [questionId], references: [id])
+  selectedChoice   Choice?            @relation(fields: [selectedChoiceId], references: [id])
+
+  @@unique([attemptId, questionId])
+  @@map("student_answers")
+}
+
+// ==================== ANALYTICS ====================
+
+model AnalysisResult {
+  id              String   @id @default(cuid())
+  attemptId       String   @unique
+  chapterStats    String     // { chapterId: { name, correct, total, accuracy } }
+  lessonStats     String
+  categoryStats   String     // { CONCEPT: { correct, total } }
+  difficultyStats String     // { EASY: { correct, total } }
+  comments        String     // Array of comment strings
+  suggestions     String     // Array of suggestion strings
+  createdAt       DateTime @default(now())
+
+  attempt         StudentExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@map("analysis_results")
+}
+
+model AnalyticsSnapshot {
+  id            String   @id @default(cuid())
+  studentId     String
+  subjectId     String?
+  chapterId     String?
+  lessonId      String?
+  category      String?
+  masteryScore  Float    @default(0)  // 0-100
+  accuracy      Float    @default(0)  // 0-1
+  attemptCount  Int      @default(0)
+  lastAttemptAt DateTime?
+  trend         String?  // "improving", "stable", "declining"
+  label         String?  // "Chưa nắm", "Đang hình thành", "Khá", "Thành thạo"
+  updatedAt     DateTime @updatedAt
+  createdAt     DateTime @default(now())
+
+  student       User     @relation(fields: [studentId], references: [id])
+
+  @@map("analytics_snapshots")
+}
+
+model Recommendation {
+  id                 String   @id @default(cuid())
+  studentId          String
+  subjectId          String?
+  chapterId          String?
+  lessonId           String?
+  recommendationText String
+  priority           Int      @default(1)  // 1 = highest
+  isRead             Boolean  @default(false)
+  createdAt          DateTime @default(now())
+
+  student            User     @relation(fields: [studentId], references: [id])
+  lesson             Lesson?  @relation(fields: [lessonId], references: [id])
+
+  @@map("recommendations")
+}
