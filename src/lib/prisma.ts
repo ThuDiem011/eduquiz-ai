@@ -1,12 +1,28 @@
 import { PrismaClient } from "@prisma/client";
+import { PrismaLibSQL } from "@prisma/adapter-libsql";
+import { createClient } from "@libsql/client";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
 function createPrismaClient() {
-  // Prisma 5 với SQLite — kết nối file local (dev.db)
-  // Dữ liệu trên Turso được quản lý riêng qua push-to-turso.js
+  const url = process.env.DATABASE_URL || "";
+  
+  // Nếu là môi trường Vercel/Production dùng Turso
+  if (url.startsWith("libsql:")) {
+    const libsql = createClient({
+      url: process.env.DATABASE_URL!,
+      authToken: process.env.TURSO_AUTH_TOKEN,
+    });
+    const adapter = new PrismaLibSQL(libsql);
+    return new PrismaClient({ 
+      adapter,
+      log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+    });
+  }
+
+  // Nếu là môi trường Local dùng SQLite file
   return new PrismaClient({
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
